@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>四季北觀拼圖大挑戰</title>
+
+  <meta property="og:title" content="四季北觀拼圖大挑戰">
+  <meta property="og:description" content="60 秒完成拼圖挑戰，看看你能不能成功！">
+  <meta property="og:image" content="https://36313669a-ops.github.io/puzzle4/01.jpg">
+  <meta property="og:url" content="https://36313669a-ops.github.io/puzzle4/">
+  <meta property="og:type" content="website">
+</head>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f4f4f4;
+      user-select: none;
+    }
+
+    h1 { margin: 15px 0; }
+
+    #menu { padding: 20px; }
+
+    .choice-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      max-width: 400px;
+      margin: auto;
+    }
+
+    .choice {
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: 0.2s;
+      background: white;
+    }
+
+    .choice:hover {
+      transform: scale(1.03);
+      border-color: #333;
+    }
+
+    .choice img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+
+    #game {
+      display: none;
+      padding: 20px;
+    }
+
+    #timer {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #d80000;
+    }
+
+    #game-layout {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    /* 拼圖板 */
+    #puzzle-board {
+      width: 90vw;
+      max-width: 360px;
+      height: 90vw;
+      max-height: 360px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 3px;
+      background: #333;
+      border-radius: 12px;
+      padding: 5px;
+      touch-action: none;
+    }
+
+    .cell {
+      background: #111;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cell.fixed {
+      border: 2px solid rgba(0,255,0,0.7);
+    }
+
+    .cell.empty {
+      border: 2px dashed rgba(255,255,255,0.5);
+    }
+
+    /* 右側碎片區 */
+    #pieces-area {
+      width: 230px;
+      max-width: 90vw;
+      background: white;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.15);
+    }
+
+    #pieces-area h3 {
+      margin: 5px 0 10px;
+      font-size: 16px;
+    }
+
+    #pieces-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      min-height: 120px;
+      touch-action: none;
+    }
+
+    /* 拼圖片(在格子內) */
+    .piece {
+      width: 100%;
+      height: 100%;
+      background-size: 300% 300%;
+      border-radius: 8px;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    /* 右側碎片 */
+    .floating-piece {
+      width: 95px;
+      height: 95px;
+      border-radius: 10px;
+      border: 2px solid rgba(0,0,0,0.2);
+      background-size: 300% 300%;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .dragging {
+      opacity: 0.85;
+      cursor: grabbing;
+      transform: scale(1.05);
+      z-index: 9999;
+      position: fixed !important;
+      pointer-events: none;
+    }
+
+    /* 成功對話框 */
+    #success-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      width: 80%;
+      max-width: 360px;
+      text-align: center;
+    }
+
+    .modal-content h2 {
+      margin: 0 0 10px;
+      color: green;
+    }
+
+    .modal-content button {
+      margin-top: 15px;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #007bff;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    /* 左下角提示原圖 */
+    #hint-image {
+      display: none;
+      position: fixed;
+      left: 10px;
+      bottom: 10px;
+      width: 150px;
+      height: auto;
+      border-radius: 12px;
+      border: 3px solid white;
+      box-shadow: 0 0 12px rgba(0,0,0,0.4);
+      z-index: 500;
+    }
+
+    @media (max-width: 480px) {
+      .floating-piece {
+        width: 80px;
+        height: 80px;
+      }
+      #hint-image {
+        width: 120px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🧩 四季北觀拼圖大挑戰</h1>
+
+  <!-- 選單 -->
+  <div id="menu">
+    <h2>請選擇一款拼圖</h2>
+    <div class="choice-container">
+      <div class="choice" onclick="startGame(0)"><img src="01.jpg"></div>
+      <div class="choice" onclick="startGame(1)"><img src="02.jpg"></div>
+      <div class="choice" onclick="startGame(2)"><img src="03.jpg"></div>
+      <div class="choice" onclick="startGame(3)"><img src="04.jpg"></div>
+    </div>
+  </div>
+
+  <!-- 遊戲畫面 -->
+  <div id="game">
+    <div id="timer">剩餘時間：60 秒</div>
+
+    <div id="game-layout">
+      <div id="puzzle-board"></div>
+
+      <div id="pieces-area">
+        <h3>拼圖碎片區</h3>
+        <div id="pieces-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 左下角提示原圖 -->
+  <img id="hint-image" src="" alt="提示原圖">
+
+  <!-- 成功對話框 -->
+  <div id="success-modal">
+    <div class="modal-content">
+      <h2>🎉 恭喜完成四季北觀拼圖大挑戰！</h2>
+      <p>恭喜完成四季北觀拼圖大挑戰，請大聲唸出拼圖裡的景點名稱!</p>
+      <button onclick="restartGame()">重來一次</button>
+    </div>
+  </div>
+
+<script>
+  const images = ["01.jpg", "02.jpg", "03.jpg", "04.jpg"];
+
+  let selectedImage = "";
+  let timer = 60;
+  let countdownInterval = null;
+  let firstMove = false;
+  let gameFinished = false;
+
+  let fixedIndexes = new Set();
+  let remainingIndexes = [];
+
+  // 拖曳狀態
+  let draggingEl = null;
+  let offsetX = 0;
+  let offsetY = 0;
+  let originalParent = null;
+
+  const menu = document.getElementById("menu");
+  const game = document.getElementById("game");
+  const board = document.getElementById("puzzle-board");
+  const piecesContainer = document.getElementById("pieces-container");
+  const timerText = document.getElementById("timer");
+  const modal = document.getElementById("success-modal");
+  const hintImage = document.getElementById("hint-image");
+
+  function startGame(index) {
+    selectedImage = images[index];
+
+    menu.style.display = "none";
+    game.style.display = "block";
+
+    hintImage.src = selectedImage;
+    hintImage.style.display = "none";
+
+    createPuzzle();
+  }
+
+  function resetTimer() {
+    firstMove = false;
+    gameFinished = false;
+    timer = 60;
+    timerText.textContent = `剩餘時間：${timer} 秒`;
+
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+
+    hintImage.style.display = "none";
+  }
+
+  function startTimer() {
+    if (countdownInterval) return;
+
+    countdownInterval = setInterval(() => {
+      if (gameFinished) return;
+
+      timer--;
+      timerText.textContent = `剩餘時間：${timer} 秒`;
+
+      if (timer <= 40 && !gameFinished) {
+        hintImage.style.display = "block";
+      }
+
+      if (timer <= 0) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+
+        alert("時間到！挑戰失敗，請重試！");
+        restartGame();
+      }
+    }, 1000);
+  }
+
+  function createPuzzle() {
+    board.innerHTML = "";
+    piecesContainer.innerHTML = "";
+    fixedIndexes.clear();
+    remainingIndexes = [];
+
+    // 固定 5 片
+    while (fixedIndexes.size < 5) {
+      fixedIndexes.add(Math.floor(Math.random() * 9));
+    }
+
+    // 剩下 4 片
+    for (let i = 0; i < 9; i++) {
+      if (!fixedIndexes.has(i)) remainingIndexes.push(i);
+    }
+
+    // 建立拼圖板
+    for (let position = 0; position < 9; position++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.position = position;
+
+      if (fixedIndexes.has(position)) {
+        cell.classList.add("fixed");
+        const piece = createPiece(position, true, false);
+        cell.appendChild(piece);
+      } else {
+        cell.classList.add("empty");
+      }
+
+      board.appendChild(cell);
+    }
+
+    // 右側碎片
+    const shuffled = [...remainingIndexes].sort(() => Math.random() - 0.5);
+    shuffled.forEach(pieceIndex => {
+      piecesContainer.appendChild(createPiece(pieceIndex, false, true));
+    });
+
+    resetTimer();
+  }
+
+  function createPiece(pieceIndex, isFixed, isFloating) {
+    const div = document.createElement("div");
+    div.dataset.pieceIndex = pieceIndex;
+
+    if (isFloating) div.className = "floating-piece";
+    else div.className = "piece";
+
+    div.style.backgroundImage = `url(${selectedImage})`;
+
+    const x = pieceIndex % 3;
+    const y = Math.floor(pieceIndex / 3);
+    div.style.backgroundPosition = `${x * 50}% ${y * 50}%`;
+
+    if (!isFixed) {
+      div.addEventListener("pointerdown", onPointerDown);
+    } else {
+      div.style.cursor = "default";
+    }
+
+    return div;
+  }
+
+  function onPointerDown(e) {
+    if (gameFinished) return;
+
+    if (!firstMove) {
+      firstMove = true;
+      startTimer();
+    }
+
+    draggingEl = e.currentTarget;
+    originalParent = draggingEl.parentElement;
+
+    const rect = draggingEl.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+
+    draggingEl.classList.add("dragging");
+    draggingEl.style.width = rect.width + "px";
+    draggingEl.style.height = rect.height + "px";
+
+    document.body.appendChild(draggingEl);
+    moveDragging(e.clientX, e.clientY);
+
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerUp);
+  }
+
+  function onPointerMove(e) {
+    if (!draggingEl) return;
+    moveDragging(e.clientX, e.clientY);
+  }
+
+  function moveDragging(x, y) {
+    draggingEl.style.left = (x - offsetX) + "px";
+    draggingEl.style.top = (y - offsetY) + "px";
+  }
+
+  function onPointerUp(e) {
+    if (!draggingEl) return;
+
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", onPointerUp);
+    document.removeEventListener("pointercancel", onPointerUp);
+
+    draggingEl.classList.remove("dragging");
+
+    const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+
+    let targetCell = dropTarget ? dropTarget.closest(".cell") : null;
+    let targetPiecesArea = dropTarget ? dropTarget.closest("#pieces-container") : null;
+
+    if (targetCell && !targetCell.classList.contains("fixed")) {
+      placeIntoCell(targetCell, draggingEl);
+    } else if (targetPiecesArea) {
+      placeIntoPiecesArea(draggingEl);
+    } else {
+      returnToOriginal(draggingEl);
+    }
+
+    draggingEl.style.left = "";
+    draggingEl.style.top = "";
+    draggingEl.style.width = "";
+    draggingEl.style.height = "";
+
+    draggingEl = null;
+    originalParent = null;
+
+    checkWin();
+  }
+
+  function placeIntoCell(cell, pieceEl) {
+    const existing = cell.querySelector(".piece");
+    if (existing) {
+      placeIntoPiecesArea(existing);
+    }
+
+    pieceEl.className = "piece";
+    cell.appendChild(pieceEl);
+  }
+
+  function placeIntoPiecesArea(pieceEl) {
+    pieceEl.className = "floating-piece";
+    piecesContainer.appendChild(pieceEl);
+  }
+
+  function returnToOriginal(pieceEl) {
+    if (originalParent) {
+      originalParent.appendChild(pieceEl);
+    } else {
+      piecesContainer.appendChild(pieceEl);
+    }
+  }
+
+  function checkWin() {
+    let correctCount = 0;
+    const cells = document.querySelectorAll(".cell");
+
+    cells.forEach(cell => {
+      const pos = parseInt(cell.dataset.position);
+
+      if (fixedIndexes.has(pos)) {
+        correctCount++;
+        return;
+      }
+
+      const piece = cell.querySelector(".piece");
+      if (!piece) return;
+
+      const pieceIndex = parseInt(piece.dataset.pieceIndex);
+      if (pieceIndex === pos) correctCount++;
+    });
+
+    if (correctCount === 9) {
+      gameFinished = true;
+
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+
+      hintImage.style.display = "none";
+      modal.style.display = "flex";
+    }
+  }
+
+  function restartGame() {
+    modal.style.display = "none";
+    game.style.display = "none";
+    menu.style.display = "block";
+
+    resetTimer();
+    board.innerHTML = "";
+    piecesContainer.innerHTML = "";
+  }
+</script>
+
+</body>
+</html>
